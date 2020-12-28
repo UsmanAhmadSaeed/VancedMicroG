@@ -556,7 +556,6 @@ public class LoginActivity extends AssistantActivity {
             getWindow().getDecorView().setSystemUiVisibility(visibility);
         }
 
-
         @JavascriptInterface
         public final void setNewAccountCreated() {
             Log.d(TAG, "JSBridge: setNewAccountCreated");
