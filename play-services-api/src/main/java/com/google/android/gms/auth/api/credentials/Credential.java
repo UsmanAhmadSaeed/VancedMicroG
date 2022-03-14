@@ -1,17 +1,9 @@
 /*
- * Copyright (C) 2013-2017 microG Project Team
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: 2016, microG Project Team
+ * SPDX-License-Identifier: Apache-2.0
+ * Notice: Portions of this file are reproduced from work created and shared by Google and used
+ *         according to terms described in the Creative Commons 4.0 Attribution License.
+ *         See https://developers.google.com/readme/policies for details.
  */
 
 package com.google.android.gms.auth.api.credentials;
@@ -21,38 +13,30 @@ import android.text.TextUtils;
 
 import org.microg.gms.common.PublicApi;
 import org.microg.safeparcel.AutoSafeParcelable;
-import org.microg.safeparcel.SafeParceled;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 @PublicApi
 public class Credential extends AutoSafeParcelable {
 
-    @SafeParceled(1000)
-    private int versionCode = 1;
+    @Field(1000)
+    private final int versionCode = 1;
 
-    @SafeParceled(1)
+    @Field(1)
     private String id;
-
-    @SafeParceled(2)
+    @Field(2)
     private String name;
-
-    @SafeParceled(3)
+    @Field(3)
     private Uri profilePictureUri;
-
-    @SafeParceled(value = 4, subClass = IdToken.class)
+    @Field(value = 4, subClass = IdToken.class)
     private List<IdToken> tokens;
-
-    @SafeParceled(5)
+    @Field(5)
     private String password;
-
-    @SafeParceled(6)
+    @Field(6)
     private String accountType;
-
-    @SafeParceled(7)
+    @Field(7)
     private String generatedPassword;
 
     private Credential() {
@@ -140,19 +124,19 @@ public class Credential extends AutoSafeParcelable {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Credential)) return false;
+        if (o == null || !(o instanceof Credential)) return false;
 
         Credential that = (Credential) o;
 
-        if (!Objects.equals(id, that.id)) return false;
-        if (!Objects.equals(name, that.name)) return false;
-        if (!Objects.equals(profilePictureUri, that.profilePictureUri))
+        if (id != null ? !id.equals(that.id) : that.id != null) return false;
+        if (name != null ? !name.equals(that.name) : that.name != null) return false;
+        if (profilePictureUri != null ? !profilePictureUri.equals(that.profilePictureUri) : that.profilePictureUri != null)
             return false;
-        if (!Objects.equals(password, that.password))
+        if (password != null ? !password.equals(that.password) : that.password != null)
             return false;
-        if (!Objects.equals(accountType, that.accountType))
+        if (accountType != null ? !accountType.equals(that.accountType) : that.accountType != null)
             return false;
-        return Objects.equals(generatedPassword, that.generatedPassword);
+        return generatedPassword != null ? generatedPassword.equals(that.generatedPassword) : that.generatedPassword == null;
 
     }
 
@@ -162,7 +146,7 @@ public class Credential extends AutoSafeParcelable {
     }
 
     public static class Builder {
-        private String id;
+        private final String id;
         private String name;
         private Uri profilePictureUri;
         private String password;
@@ -246,5 +230,5 @@ public class Credential extends AutoSafeParcelable {
         }
     }
 
-    public static final Creator<Credential> CREATOR = new AutoCreator<>(Credential.class);
+    public static final Creator<Credential> CREATOR = new AutoCreator<Credential>(Credential.class);
 }

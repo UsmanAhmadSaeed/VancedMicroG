@@ -16,22 +16,6 @@
 
 package com.google.android.gms.common;
 
-import android.app.Activity;
-import android.app.Dialog;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.os.Bundle;
-import androidx.fragment.app.FragmentActivity;
-import android.util.Log;
-
-import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.Tasks;
-
-import org.microg.gms.common.Constants;
-import org.microg.gms.common.PublicApi;
-
 import static com.google.android.gms.common.ConnectionResult.INTERNAL_ERROR;
 import static com.google.android.gms.common.ConnectionResult.INVALID_ACCOUNT;
 import static com.google.android.gms.common.ConnectionResult.NETWORK_ERROR;
@@ -42,6 +26,23 @@ import static com.google.android.gms.common.ConnectionResult.SERVICE_MISSING;
 import static com.google.android.gms.common.ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED;
 import static com.google.android.gms.common.ConnectionResult.SIGN_IN_REQUIRED;
 import static com.google.android.gms.common.ConnectionResult.SUCCESS;
+
+import android.app.Activity;
+import android.app.Dialog;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.os.Bundle;
+import android.util.Log;
+
+import androidx.fragment.app.FragmentActivity;
+
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+
+import org.microg.gms.common.Constants;
+import org.microg.gms.common.PublicApi;
 
 @PublicApi
 public class GoogleApiAvailability {
@@ -55,7 +56,7 @@ public class GoogleApiAvailability {
     /**
      * Google Play services client library version (declared in library's AndroidManifest.xml android:versionCode).
      */
-    public static final int GOOGLE_PLAY_SERVICES_VERSION_CODE = Constants.MAX_REFERENCE_VERSION;
+    public static final int GOOGLE_PLAY_SERVICES_VERSION_CODE = Constants.GMS_VERSION_CODE;
 
     private static GoogleApiAvailability instance;
 
@@ -161,6 +162,19 @@ public class GoogleApiAvailability {
         Log.d(TAG, "As we can't know right now if the later desired feature is available, " +
                 "we just pretend it to be.");
         return SUCCESS;
+    }
+
+    /**
+     * Verifies that Google Play services is installed and enabled on this device, and that the version installed on
+     * this device is no older than the one required by this client or the version is not older than the one specified
+     * in <code>minApkVersion</code>.
+     *
+     * @return status code indicating whether there was an error. Can be one of following in
+     * {@link ConnectionResult}: SUCCESS, SERVICE_MISSING, SERVICE_UPDATING,
+     * SERVICE_VERSION_UPDATE_REQUIRED, SERVICE_DISABLED, SERVICE_INVALID
+     */
+    public int isGooglePlayServicesAvailable(Context context, int minApkVersion) {
+        return isGooglePlayServicesAvailable(context);
     }
 
     /**

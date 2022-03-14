@@ -16,17 +16,29 @@
 
 package org.microg.gms.auth.login;
 
+import static android.accounts.AccountManager.PACKAGE_NAME_KEY_LEGACY_NOT_VISIBLE;
+import static android.accounts.AccountManager.VISIBILITY_USER_MANAGED_VISIBLE;
+import static android.os.Build.VERSION.SDK_INT;
+import static android.telephony.TelephonyManager.SIM_STATE_UNKNOWN;
+import static android.view.KeyEvent.KEYCODE_BACK;
+import static android.view.View.INVISIBLE;
+import static android.view.View.VISIBLE;
+import static android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT;
+import static org.microg.gms.auth.AuthPrefs.isAuthVisible;
+import static org.microg.gms.checkin.CheckinPrefs.hideLauncherIcon;
+import static org.microg.gms.checkin.CheckinPrefs.isSpoofingEnabled;
+import static org.microg.gms.checkin.CheckinPrefs.setSpoofingEnabled;
+import static org.microg.gms.common.Constants.GMS_PACKAGE_NAME;
+import static org.microg.gms.common.Constants.GMS_VERSION_CODE;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -38,12 +50,11 @@ import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import androidx.annotation.StringRes;
-import androidx.preference.PreferenceManager;
+import androidx.webkit.WebViewClientCompat;
 
 import com.mgoogle.android.gms.R;
 
@@ -52,29 +63,17 @@ import org.microg.gms.auth.AuthConstants;
 import org.microg.gms.auth.AuthManager;
 import org.microg.gms.auth.AuthRequest;
 import org.microg.gms.auth.AuthResponse;
-import org.microg.gms.checkin.CheckinClient;
 import org.microg.gms.checkin.CheckinManager;
 import org.microg.gms.checkin.LastCheckinInfo;
 import org.microg.gms.common.HttpFormClient;
 import org.microg.gms.common.Utils;
 import org.microg.gms.people.PeopleManager;
+import org.microg.gms.profile.Build;
+import org.microg.gms.profile.ProfileManager;
+import org.microg.gms.ui.UtilsKt;
 
 import java.io.IOException;
 import java.util.Locale;
-
-import static android.accounts.AccountManager.PACKAGE_NAME_KEY_LEGACY_NOT_VISIBLE;
-import static android.accounts.AccountManager.VISIBILITY_USER_MANAGED_VISIBLE;
-import static android.os.Build.VERSION.SDK_INT;
-import static android.os.Build.VERSION_CODES.GINGERBREAD_MR1;
-import static android.os.Build.VERSION_CODES.HONEYCOMB;
-import static android.os.Build.VERSION_CODES.LOLLIPOP;
-import static android.telephony.TelephonyManager.SIM_STATE_UNKNOWN;
-import static android.view.KeyEvent.KEYCODE_BACK;
-import static android.view.View.INVISIBLE;
-import static android.view.View.VISIBLE;
-import static android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT;
-import static org.microg.gms.common.Constants.GMS_PACKAGE_NAME;
-import static org.microg.gms.common.Constants.MAX_REFERENCE_VERSION;
 
 public class LoginActivity extends AssistantActivity {
     public static final String TMPL_NEW_ACCOUNT = "new_account";
@@ -97,8 +96,8 @@ public class LoginActivity extends AssistantActivity {
     private ViewGroup authContent;
     private int state = 0;
 
-    private String HuaweiButtonPreference = "huaweiloginbutton";
-    private String LoginButtonPreference = "standardloginbutton";
+    private final String HuaweiButtonPreference = "huaweiloginbutton";
+    private final String LoginButtonPreference = "standardloginbutton";
 
     @SuppressLint("AddJavascriptInterface")
     @Override
@@ -111,7 +110,7 @@ public class LoginActivity extends AssistantActivity {
         webView.addJavascriptInterface(new JsBridge(), "mm");
         authContent = (ViewGroup) findViewById(R.id.auth_content);
         ((ViewGroup) findViewById(R.id.auth_root)).addView(webView);
-        webView.setWebViewClient(new WebViewClient() {
+        webView.setWebViewClient(new WebViewClientCompat() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 Log.d(TAG, "pageFinished: " + view.getUrl());
@@ -140,15 +139,13 @@ public class LoginActivity extends AssistantActivity {
                 AccountManager accountManager = AccountManager.get(this);
                 Account account = new Account(getIntent().getStringExtra(EXTRA_EMAIL), accountType);
                 accountManager.addAccountExplicitly(account, getIntent().getStringExtra(EXTRA_TOKEN), null);
-                if (AuthManager.isAuthVisible(this) && SDK_INT >= Build.VERSION_CODES.O) {
+                if (isAuthVisible(this) && SDK_INT >= 26) {
                     accountManager.setAccountVisibility(account, PACKAGE_NAME_KEY_LEGACY_NOT_VISIBLE, VISIBILITY_USER_MANAGED_VISIBLE);
                 }
                 retrieveGmsToken(account);
             } else {
                 retrieveRtToken(getIntent().getStringExtra(EXTRA_TOKEN));
             }
-        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            init();
         } else {
             setMessage(R.string.auth_before_connect);
             setSpoofButtonText(R.string.brand_spoof_button);
@@ -162,13 +159,18 @@ public class LoginActivity extends AssistantActivity {
         super.onHuaweiButtonClicked();
         state++;
         if (state == 1) {
-            PreferenceManager.getDefaultSharedPreferences(this).edit().putBoolean(HuaweiButtonPreference, true).apply();
-            if (PreferenceManager.getDefaultSharedPreferences(this).getBoolean(LoginButtonPreference, true)) {
-                LastCheckinInfo.ClearCheckinInfo(this);
-                CheckinClient.brandSpoof = true;
-                PreferenceManager.getDefaultSharedPreferences(this).edit().putBoolean(LoginButtonPreference, true).apply();
+            if (SDK_INT >= 23) {
+                hideLauncherIcon(this, false);
+                UtilsKt.hideIcon(this, false);
+            }
+            if (!isSpoofingEnabled(this)) {
+                LastCheckinInfo.clear(this);
+                setSpoofingEnabled(this, true);
             }
             init();
+        } else if (state == -1) {
+            setResult(RESULT_CANCELED);
+            finish();
         }
     }
 
@@ -177,11 +179,9 @@ public class LoginActivity extends AssistantActivity {
         super.onNextButtonClicked();
         state++;
         if (state == 1) {
-            PreferenceManager.getDefaultSharedPreferences(this).edit().putBoolean(LoginButtonPreference, true).apply();
-            if (PreferenceManager.getDefaultSharedPreferences(this).getBoolean(HuaweiButtonPreference, true)) {
-                LastCheckinInfo.ClearCheckinInfo(this);
-                CheckinClient.brandSpoof = false;
-                PreferenceManager.getDefaultSharedPreferences(this).edit().putBoolean(HuaweiButtonPreference, true).apply();
+            if (isSpoofingEnabled(this)) {
+                LastCheckinInfo.clear(this);
+                setSpoofingEnabled(this, false);
             }
             init();
         } else if (state == -1) {
@@ -209,7 +209,7 @@ public class LoginActivity extends AssistantActivity {
         authContent.addView(loading);
         setMessage(R.string.auth_connecting);
         CookieManager.getInstance().setAcceptCookie(true);
-        if (SDK_INT >= LOLLIPOP) {
+        if (SDK_INT >= 21) {
             CookieManager.getInstance().removeAllCookies(value -> start());
         } else {
             //noinspection deprecation
@@ -220,7 +220,7 @@ public class LoginActivity extends AssistantActivity {
 
     private static WebView createWebView(Context context) {
         WebView webView = new WebView(context);
-        if (SDK_INT < LOLLIPOP) {
+        if (SDK_INT < 21) {
             webView.setVisibility(VISIBLE);
         } else {
             webView.setVisibility(INVISIBLE);
@@ -228,13 +228,14 @@ public class LoginActivity extends AssistantActivity {
         webView.setLayoutParams(new RelativeLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         webView.setBackgroundColor(Color.TRANSPARENT);
-        prepareWebViewSettings(webView.getSettings());
+        prepareWebViewSettings(context, webView.getSettings());
         return webView;
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private static void prepareWebViewSettings(WebSettings settings) {
-        settings.setUserAgentString(settings.getUserAgentString() + MAGIC_USER_AGENT);
+    private static void prepareWebViewSettings(Context context, WebSettings settings) {
+        ProfileManager.ensureInitialized(context);
+        settings.setUserAgentString(Build.INSTANCE.generateWebViewUserAgentString(settings.getUserAgentString()) + MAGIC_USER_AGENT);
         settings.setJavaScriptEnabled(true);
         settings.setSupportMultipleWindows(false);
         settings.setSaveFormData(false);
@@ -250,7 +251,7 @@ public class LoginActivity extends AssistantActivity {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = cm.getActiveNetworkInfo();
         if (networkInfo != null && networkInfo.isConnected()) {
-            if (LastCheckinInfo.read(this).androidId == 0) {
+            if (LastCheckinInfo.read(this).getAndroidId() == 0) {
                 new Thread(() -> {
                     Runnable next;
                     next = checkin(false) ? this::loadLoginPage : () -> showError(R.string.auth_general_error_desc);
@@ -306,7 +307,6 @@ public class LoginActivity extends AssistantActivity {
                 .token(oAuthToken).isAccessToken()
                 .addAccount()
                 .getAccountId()
-                .droidguardResults(null /*TODO*/)
                 .getResponseAsync(new HttpFormClient.Callback<AuthResponse>() {
                     @Override
                     public void onResponse(AuthResponse response) {
@@ -416,7 +416,7 @@ public class LoginActivity extends AssistantActivity {
 
         @JavascriptInterface
         public final void addAccount(String json) {
-            Log.d(TAG, "JSBridge: addAccount " + json);
+            Log.d(TAG, "JSBridge: addAccount");
         }
 
         @JavascriptInterface
@@ -451,8 +451,8 @@ public class LoginActivity extends AssistantActivity {
 
         @JavascriptInterface
         public final String getAndroidId() {
-            long androidId = LastCheckinInfo.read(LoginActivity.this).androidId;
-            Log.d(TAG, "JSBridge: getAndroidId " + androidId);
+            long androidId = LastCheckinInfo.read(LoginActivity.this).getAndroidId();
+            Log.d(TAG, "JSBridge: getAndroidId");
             if (androidId == 0 || androidId == -1) return null;
             return Long.toHexString(androidId);
         }
@@ -484,7 +484,7 @@ public class LoginActivity extends AssistantActivity {
 
         @JavascriptInterface
         public final int getPlayServicesVersionCode() {
-            return MAX_REFERENCE_VERSION;
+            return GMS_VERSION_CODE;
         }
 
         @JavascriptInterface
@@ -514,7 +514,6 @@ public class LoginActivity extends AssistantActivity {
 
         @JavascriptInterface
         public final void hideKeyboard() {
-            Log.d(TAG, "JSBridge: hideKeyboard");
             inputMethodManager.hideSoftInputFromWindow(webView.getWindowToken(), 0);
         }
 
@@ -530,7 +529,7 @@ public class LoginActivity extends AssistantActivity {
 
         @JavascriptInterface
         public final void log(String s) {
-            Log.d(TAG, "JSBridge: log " + s);
+            Log.d(TAG, "JSBridge: log");
         }
 
         @JavascriptInterface
@@ -540,14 +539,11 @@ public class LoginActivity extends AssistantActivity {
 
         @JavascriptInterface
         public final void setAccountIdentifier(String accountIdentifier) {
-            Log.d(TAG, "JSBridge: setAccountIdentifier " + accountIdentifier);
+            Log.d(TAG, "JSBridge: setAccountIdentifier");
         }
 
-        @TargetApi(HONEYCOMB)
         @JavascriptInterface
         public final void setBackButtonEnabled(boolean backButtonEnabled) {
-            Log.d(TAG, "JSBridge: setBackButtonEnabled: " + backButtonEnabled);
-            if (SDK_INT <= GINGERBREAD_MR1) return;
             int visibility = getWindow().getDecorView().getSystemUiVisibility();
             if (backButtonEnabled)
                 visibility &= -STATUS_BAR_DISABLE_BACK;
@@ -564,13 +560,11 @@ public class LoginActivity extends AssistantActivity {
 
         @JavascriptInterface
         public final void showKeyboard() {
-            Log.d(TAG, "JSBridge: showKeyboard");
             inputMethodManager.showSoftInput(webView, SHOW_IMPLICIT);
         }
 
         @JavascriptInterface
         public final void showView() {
-            Log.d(TAG, "JSBridge: showView");
             runOnUiThread(() -> webView.setVisibility(VISIBLE));
         }
 

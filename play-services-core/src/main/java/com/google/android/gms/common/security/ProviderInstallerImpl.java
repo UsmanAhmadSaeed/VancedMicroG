@@ -5,6 +5,8 @@
 
 package com.google.android.gms.common.security;
 
+import static com.google.android.gms.security.ProviderInstaller.PROVIDER_NAME;
+
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.os.Build;
@@ -37,8 +39,6 @@ import java.util.zip.ZipFile;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-
-import static com.google.android.gms.security.ProviderInstaller.PROVIDER_NAME;
 
 @Keep
 public class ProviderInstallerImpl {
@@ -108,6 +108,10 @@ public class ProviderInstallerImpl {
         }
     }
 
+    public void reportRequestStats(Context context, long a, long b) {
+        // Ignore stats
+    }
+
     private static void initProvider(Context context, String packageName) {
         Log.d(TAG, "Initializing provider for " + packageName);
 
@@ -131,7 +135,7 @@ public class ProviderInstallerImpl {
         // TODO: Move manual loading into helper function (as it is also used in both maps implementations)
         String primaryCpuAbi = (String) ApplicationInfo.class.getField("primaryCpuAbi").get(otherAppInfo);
         if (primaryCpuAbi != null) {
-            String path = "lib/" + primaryCpuAbi + "/libconscrypt_gmscore_jni.so";
+            String path = "lib/" + primaryCpuAbi;
             File cacheFile = new File(context.createPackageContext(packageName, 0).getCacheDir().getAbsolutePath() + "/.gmscore/" + path);
             cacheFile.getParentFile().mkdirs();
             File apkFile = new File(context.getPackageCodePath());

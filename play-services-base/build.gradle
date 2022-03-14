@@ -18,10 +18,9 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion androidCompileSdk
-    buildToolsVersion "$androidBuildVersionTools"
+    buildToolsVersion "30.0.3"
 
     defaultConfig {
-        versionName version
         minSdkVersion androidMinSdk
         targetSdkVersion androidTargetSdk
     }
@@ -33,10 +32,12 @@ android {
 }
 
 dependencies {
+    implementation 'com.google.android.gms:play-services-base:18.0.1'
+    
     api project(':play-services-basement')
     api project(':play-services-tasks')
     api project(':play-services-base-api')
 
-    implementation "androidx.fragment:fragment:$fragmentVersion"
-    implementation 'com.google.android.gms:play-services-base:17.5.0'
+    implementation 'androidx.fragment:fragment:1.4.1'
+    implementation 'com.google.android.gms:play-services-base:18.0.1'
 }

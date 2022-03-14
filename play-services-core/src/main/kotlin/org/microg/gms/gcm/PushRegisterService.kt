@@ -6,7 +6,6 @@
 
 package org.microg.gms.gcm
 
-import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -22,9 +21,7 @@ import org.microg.gms.checkin.CheckinService
 import org.microg.gms.checkin.LastCheckinInfo
 import org.microg.gms.common.ForegroundServiceContext
 import org.microg.gms.common.PackageUtils
-import org.microg.gms.common.Utils
 import org.microg.gms.gcm.GcmConstants.*
-import org.microg.gms.ui.AskPushPermission
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -32,7 +29,7 @@ import kotlin.coroutines.suspendCoroutine
 private const val TAG = "GmsGcmRegister"
 
 private suspend fun ensureCheckinIsUpToDate(context: Context) {
-    if (!CheckinPrefs.get(context).isEnabled) throw RuntimeException("Checkin disabled")
+    if (!CheckinPrefs.isEnabled(context)) throw RuntimeException("Checkin disabled")
     val lastCheckin = LastCheckinInfo.read(context).lastCheckin
     if (lastCheckin < System.currentTimeMillis() - CheckinService.MAX_VALID_CHECKIN_AGE) {
         val resultData: Bundle = suspendCoroutine { continuation ->
@@ -58,7 +55,7 @@ private suspend fun ensureAppRegistrationAllowed(context: Context, database: Gcm
     if (!GcmPrefs.get(context).isEnabled) throw RuntimeException("GCM disabled")
     val app = database.getApp(packageName)
     if (app?.allowRegister == false) {
-        throw RuntimeException("Push permission not granted to app")
+        throw RuntimeException("Push permission not granted to $packageName")
     }
 }
 
@@ -97,11 +94,12 @@ class PushRegisterService : LifecycleService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        WakefulBroadcastReceiver.completeWakefulIntent(intent)
-        Log.d(TAG, "onStartCommand: $intent")
-        lifecycleScope.launchWhenStarted {
-            if (intent == null) return@launchWhenStarted
-            handleIntent(intent)
+        if (intent != null) {
+            WakefulBroadcastReceiver.completeWakefulIntent(intent)
+            Log.d(TAG, "onStartCommand: $intent")
+            lifecycleScope.launchWhenStarted {
+                handleIntent(intent)
+            }
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -132,7 +130,7 @@ class PushRegisterService : LifecycleService() {
         Log.d(TAG, "register[req]: " + intent.toString() + " extras=" + intent.extras)
         val bundle = completeRegisterRequest(this, database,
                 RegisterRequest()
-                        .build(Utils.getBuild(this))
+                        .build(this)
                         .sender(intent.getStringExtra(EXTRA_SENDER))
                         .checkin(LastCheckinInfo.read(this))
                         .app(packageName)
@@ -148,7 +146,7 @@ class PushRegisterService : LifecycleService() {
         val packageName = intent.appPackageName ?: throw RuntimeException("No package provided")
         Log.d(TAG, "unregister[req]: " + intent.toString() + " extras=" + intent.extras)
         val bundle = completeRegisterRequest(this, database, RegisterRequest()
-                .build(Utils.getBuild(this))
+                .build(this)
                 .sender(intent.getStringExtra(EXTRA_SENDER))
                 .checkin(LastCheckinInfo.read(this))
                 .app(packageName)
@@ -298,7 +296,7 @@ internal class PushRegisterHandler(private val context: Context, private val dat
                         if (!delete) ensureAppRegistrationAllowed(context, database, packageName)
                         val bundle = completeRegisterRequest(context, database,
                                 RegisterRequest()
-                                        .build(Utils.getBuild(context))
+                                        .build(context)
                                         .sender(sender)
                                         .checkin(LastCheckinInfo.read(context))
                                         .app(packageName)

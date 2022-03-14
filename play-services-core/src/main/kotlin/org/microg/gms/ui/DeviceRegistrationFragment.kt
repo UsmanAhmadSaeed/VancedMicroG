@@ -31,22 +31,25 @@ class DeviceRegistrationFragment : Fragment(R.layout.device_registration_fragmen
     }
 
     fun setEnabled(newStatus: Boolean) {
+        val appContext = requireContext().applicationContext
         lifecycleScope.launchWhenResumed {
-            val info = getCheckinServiceInfo(requireContext())
+            val info = getCheckinServiceInfo(appContext)
             val newConfiguration = info.configuration.copy(enabled = newStatus)
-            displayServiceInfo(setCheckinServiceConfiguration(requireContext(), newConfiguration))
+            setCheckinServiceConfiguration(appContext, newConfiguration)
+            displayServiceInfo(info.copy(configuration = newConfiguration))
         }
     }
 
-    fun displayServiceInfo(serviceInfo: ServiceInfo) {
+    private fun displayServiceInfo(serviceInfo: ServiceInfo) {
         binding.checkinEnabled = serviceInfo.configuration.enabled
     }
 
 
     override fun onResume() {
         super.onResume()
+        val appContext = requireContext().applicationContext
         lifecycleScope.launchWhenResumed {
-            displayServiceInfo(getCheckinServiceInfo(requireContext()))
+            displayServiceInfo(getCheckinServiceInfo(appContext))
         }
     }
 }

@@ -32,12 +32,12 @@ import android.util.Log;
 
 import androidx.legacy.content.WakefulBroadcastReceiver;
 
-import com.mgoogle.android.gms.R;
 import com.google.android.gms.checkin.internal.ICheckinService;
+import com.mgoogle.android.gms.R;
 
 import org.microg.gms.auth.AuthConstants;
-import org.microg.gms.common.ForegroundServiceInfo;
 import org.microg.gms.common.ForegroundServiceContext;
+import org.microg.gms.common.ForegroundServiceInfo;
 import org.microg.gms.gcm.McsService;
 import org.microg.gms.people.PeopleManager;
 
@@ -54,10 +54,20 @@ public class CheckinService extends IntentService {
     public static final String EXTRA_RESULT_RECEIVER = "receiver";
     public static final String EXTRA_NEW_CHECKIN_TIME = "checkin_time";
 
-    private ICheckinService iface = new ICheckinService.Stub() {
+    private final ICheckinService iface = new ICheckinService.Stub() {
         @Override
         public String getDeviceDataVersionInfo() throws RemoteException {
-            return LastCheckinInfo.read(CheckinService.this).deviceDataVersionInfo;
+            return LastCheckinInfo.read(CheckinService.this).getDeviceDataVersionInfo();
+        }
+
+        @Override
+        public long getLastCheckinSuccessTime() throws RemoteException {
+            return LastCheckinInfo.read(CheckinService.this).getLastCheckin();
+        }
+
+        @Override
+        public String getLastSimOperator() throws RemoteException {
+            return null;
         }
     };
 
@@ -70,10 +80,10 @@ public class CheckinService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         try {
             ForegroundServiceContext.completeForegroundService(this, intent, TAG);
-            if (CheckinPrefs.get(this).isEnabled()) {
+            if (CheckinPrefs.isEnabled(this)) {
                 LastCheckinInfo info = CheckinManager.checkin(this, intent.getBooleanExtra(EXTRA_FORCE_CHECKIN, false));
                 if (info != null) {
-                    Log.d(TAG, "Checked in as " + Long.toHexString(info.androidId));
+                    Log.d(TAG, "Checked in as " + Long.toHexString(info.getAndroidId()));
                     String accountType = AuthConstants.DEFAULT_ACCOUNT_TYPE;
                     for (Account account : AccountManager.get(this).getAccountsByType(accountType)) {
                         PeopleManager.loadUserInfo(this, account);
@@ -86,7 +96,7 @@ public class CheckinService extends IntentService {
                         ResultReceiver receiver = intent.getParcelableExtra(EXTRA_RESULT_RECEIVER);
                         if (receiver != null) {
                             Bundle bundle = new Bundle();
-                            bundle.putLong(EXTRA_NEW_CHECKIN_TIME, info.lastCheckin);
+                            bundle.putLong(EXTRA_NEW_CHECKIN_TIME, info.getLastCheckin());
                             receiver.send(Activity.RESULT_OK, bundle);
                         }
                     }
@@ -95,7 +105,9 @@ public class CheckinService extends IntentService {
         } catch (Exception e) {
             Log.w(TAG, e);
         } finally {
-            WakefulBroadcastReceiver.completeWakefulIntent(intent);
+            if (intent != null) {
+                WakefulBroadcastReceiver.completeWakefulIntent(intent);
+            }
             schedule(this);
             stopSelf();
         }
@@ -113,6 +125,6 @@ public class CheckinService extends IntentService {
     static void schedule(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         PendingIntent pendingIntent = PendingIntent.getService(context, TriggerReceiver.class.getName().hashCode(), new Intent(context, TriggerReceiver.class), PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT);
-        alarmManager.set(AlarmManager.RTC, Math.max(LastCheckinInfo.read(context).lastCheckin + REGULAR_CHECKIN_INTERVAL, System.currentTimeMillis() + BACKUP_CHECKIN_DELAY), pendingIntent);
+        alarmManager.set(AlarmManager.RTC, Math.max(LastCheckinInfo.read(context).getLastCheckin() + REGULAR_CHECKIN_INTERVAL, System.currentTimeMillis() + BACKUP_CHECKIN_DELAY), pendingIntent);
     }
 }

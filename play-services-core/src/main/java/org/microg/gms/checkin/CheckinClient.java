@@ -16,13 +16,14 @@
 
 package org.microg.gms.checkin;
 
+import android.content.Context;
 import android.util.Log;
 
-import org.microg.gms.common.Build;
 import org.microg.gms.common.DeviceConfiguration;
 import org.microg.gms.common.DeviceIdentifier;
 import org.microg.gms.common.PhoneInfo;
 import org.microg.gms.common.Utils;
+import org.microg.gms.profile.Build;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,8 +46,7 @@ public class CheckinClient {
     private static final List<String> TODO_LIST_STRING = new ArrayList<>(); // TODO
     private static final List<CheckinRequest.Checkin.Statistic> TODO_LIST_CHECKIN = new ArrayList<CheckinRequest.Checkin.Statistic>(); // TODO
     private static final String SERVICE_URL = "https://android.clients.google.com/checkin";
-    public static boolean brandSpoof = false;
-
+    
     public static CheckinResponse request(CheckinRequest request) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(SERVICE_URL).openConnection();
         connection.setRequestMethod("POST");
@@ -76,36 +76,36 @@ public class CheckinClient {
         return response;
     }
 
-    public static CheckinRequest makeRequest(Build build, DeviceConfiguration deviceConfiguration,
+    public static CheckinRequest makeRequest(Context context, DeviceConfiguration deviceConfiguration,
                                              DeviceIdentifier deviceIdent, PhoneInfo phoneInfo,
                                              LastCheckinInfo checkinInfo, Locale locale,
-                                             List<Account> accounts) {
+                                             List<Account> accounts, Boolean brandSpoof) {
         CheckinRequest.Builder builder = new CheckinRequest.Builder()
-                .accountCookie(new ArrayList<String>())
-                .androidId(checkinInfo.androidId)
+                .accountCookie(new ArrayList<>())
+                .androidId(checkinInfo.getAndroidId())
                 .checkin(new CheckinRequest.Checkin.Builder()
                         .build(new CheckinRequest.Checkin.Build.Builder()
-                                .bootloader(brandSpoof ? "c2f2-0.2-5799621" : build.bootloader)
-                                .brand(brandSpoof ? "google" : build.brand)
+                                .bootloader(brandSpoof ? "c2f2-0.2-5799621" : Build.BOOTLOADER)
+                                .brand(brandSpoof ? "google" : Build.BOOTLOADER)
                                 .clientId("android-google")
-                                .device(brandSpoof ? "generic" : build.device)
-                                .fingerprint(brandSpoof ? "google/coral/coral:10/QD1A.190821.007/5831595:user/release-keys" : build.fingerprint)
-                                .hardware(brandSpoof ? "coral" : build.hardware)
-                                .manufacturer(brandSpoof ? "Google" : build.manufacturer)
-                                .model(brandSpoof ? "mainline" : build.model)
+                                .device(brandSpoof ? "generic" : Build.DEVICE)
+                                .fingerprint(brandSpoof ? "google/coral/coral:10/QD1A.190821.007/5831595:user/release-keys" : Build.FINGERPRINT)
+                                .hardware(brandSpoof ? "coral" : Build.HARDWARE)
+                                .manufacturer(brandSpoof ? "Google" : Build.MANUFACTURER)
+                                .model(brandSpoof ? "mainline" : Build.MODEL)
                                 .otaInstalled(false) // TODO?
-                                .product(brandSpoof ? "coral" : build.product)
-                                .radio(brandSpoof ? "" : build.radio)
-                                .sdkVersion(brandSpoof ? 29 : build.sdk)
-                                .time(build.time / 1000)
+                                .product(brandSpoof ? "coral" : Build.PRODUCT)
+                                .radio(brandSpoof ? "" : Build.RADIO)
+                                .sdkVersion(brandSpoof ? 29 : Build.VERSION.SDK_INT)
+                                .time(Build.TIME / 1000)
                                 .build())
                         .cellOperator(phoneInfo.cellOperator)
                         .event(Collections.singletonList(new CheckinRequest.Checkin.Event.Builder()
-                                .tag(checkinInfo.androidId == 0 ? "event_log_start" : "system_update")
-                                .value(checkinInfo.androidId == 0 ? null : "1536,0,-1,NULL")
+                                .tag(checkinInfo.getAndroidId() == 0 ? "event_log_start" : "system_update")
+                                .value(checkinInfo.getAndroidId() == 0 ? null : "1536,0,-1,NULL")
                                 .timeMs(new Date().getTime())
                                 .build()))
-                        .lastCheckinMs(checkinInfo.lastCheckin)
+                        .lastCheckinMs(checkinInfo.getLastCheckin())
                         .requestedGroup(TODO_LIST_STRING)
                         .roaming(phoneInfo.roaming)
                         .simOperator(phoneInfo.simOperator)
@@ -129,14 +129,14 @@ public class CheckinClient {
                         .touchScreen(deviceConfiguration.touchScreen)
                         .widthPixels(deviceConfiguration.widthPixels)
                         .build())
-                .digest(checkinInfo.digest)
+                .digest(checkinInfo.getDigest())
                 .esn(deviceIdent.esn)
                 .fragment(0)
                 .locale(locale.toString())
                 .loggingId(new Random().nextLong()) // TODO: static
                 .meid(deviceIdent.meid)
                 .otaCert(Collections.singletonList("71Q6Rn2DDZl1zPDVaaeEHItd"))
-                .serial(build.serial)
+                .serial(Build.SERIAL)
                 .timeZone(TimeZone.getDefault().getID())
                 .userName((String) TODO)
                 .userSerialNumber((Integer) TODO)
@@ -150,8 +150,8 @@ public class CheckinClient {
             builder.macAddress(Collections.singletonList(deviceIdent.wifiMac))
                     .macAddressType(Collections.singletonList("wifi"));
         }
-        if (checkinInfo.securityToken != 0) {
-            builder.securityToken(checkinInfo.securityToken)
+        if (checkinInfo.getSecurityToken() != 0) {
+            builder.securityToken(checkinInfo.getSecurityToken())
                     .fragment(1);
         }
         return builder.build();

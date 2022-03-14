@@ -16,6 +16,10 @@
 
 package org.microg.gms.common;
 
+import static android.os.Build.VERSION.SDK_INT;
+import static org.microg.gms.common.Constants.GMS_PACKAGE_NAME;
+import static org.microg.gms.common.Constants.GMS_PACKAGE_SIGNATURE_SHA1;
+
 import android.app.ActivityManager;
 import android.app.Application;
 import android.app.PendingIntent;
@@ -36,10 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static org.microg.gms.common.Constants.GMS_PACKAGE_NAME;
-import static org.microg.gms.common.Constants.GMS_PACKAGE_SIGNATURE_SHA1;
-
 public class PackageUtils {
 
     private static final String GOOGLE_PLATFORM_KEY = GMS_PACKAGE_SIGNATURE_SHA1;
@@ -50,21 +50,7 @@ public class PackageUtils {
 
     static {
         KNOWN_GOOGLE_PACKAGES = new HashMap<>();
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.classroom", "46f6c8987311e131f4f558d8e0ae145bebab6da3");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.inbox", "aa87ce1260c008d801197bb4ecea4ab8929da246");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.playconsole", "d6c35e55b481aefddd74152ca7254332739a81d6");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.travel.onthego", "0cbe08032217d45e61c0bc72f294395ee9ecb5d5");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.tycho", "01b844184e360686aa98b48eb16e05c76d4a72ad");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.contacts", "ee3e2b5d95365c5a1ccc2d8dfe48d94eb33b3ebe");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.wearable.app", "a197f9212f2fed64f0ff9c2a4edf24b9c8801c8c");
         KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.youtube.music", "afb0fed5eeaebdd86f56a97742f4b6b33ef59875");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.vr.home", "fc1edc68f7e3e4963c998e95fc38f3de8d1bfc96");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.vr.cyclops", "188c5ca3863fa121216157a5baa80755ceda70ab");
-        KNOWN_GOOGLE_PACKAGES.put("com.waze", "35b438fe1bc69d975dc8702dc16ab69ebf65f26f");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.wellbeing", "4ebdd02380f1fa0b6741491f0af35625dba76e9f");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.village.boond", "48e7985b8f901df335b5d5223579c81618431c7b");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.subscriptions.red", "de8304ace744ae4c4e05887a27a790815e610ff0");
-        KNOWN_GOOGLE_PACKAGES.put("com.google.android.apps.meetings", "47a6936b733dbdb45d71997fbe1d610eca36b8bf");
     }
 
     public static boolean isGooglePackage(Context context, String packageName) {
@@ -145,6 +131,30 @@ public class PackageUtils {
     }
 
     @Nullable
+    public static byte[] firstSignatureDigestBytes(Context context, String packageName) {
+        return firstSignatureDigestBytes(context.getPackageManager(), packageName);
+    }
+
+    @Nullable
+    public static byte[] firstSignatureDigestBytes(PackageManager packageManager, String packageName) {
+        final PackageInfo info;
+        try {
+            info = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES);
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+        if (info != null && info.signatures != null && info.signatures.length > 0) {
+            for (Signature sig : info.signatures) {
+                byte[] digest = sha1bytes(sig.toByteArray());
+                if (digest != null) {
+                    return digest;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Nullable
     public static String getCallingPackage(Context context) {
         int callingUid = Binder.getCallingUid(), callingPid = Binder.getCallingPid();
         String packageName = packageFromProcessId(context, callingPid);
@@ -154,9 +164,34 @@ public class PackageUtils {
         return packageName;
     }
 
+    public static byte[] sha1bytes(byte[] bytes) {
+        MessageDigest md;
+        try {
+            md = MessageDigest.getInstance("SHA1");
+        } catch (final NoSuchAlgorithmException e) {
+            return null;
+        }
+        if (md != null) {
+            return md.digest(bytes);
+        }
+        return null;
+    }
+
     @Nullable
     public static String getAndCheckCallingPackage(Context context, String suggestedPackageName) {
         return getAndCheckCallingPackage(context, suggestedPackageName, 0);
+    }
+
+    @Nullable
+    public static String getAndCheckCallingPackageOrExtendedAccess(Context context, String suggestedPackageName) {
+        try {
+            return getAndCheckCallingPackage(context, suggestedPackageName, 0);
+        } catch (Exception e) {
+            if (callerHasExtendedAccess(context)) {
+                return suggestedPackageName;
+            }
+            throw e;
+        }
     }
 
     @Nullable

@@ -18,10 +18,9 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion androidCompileSdk
-    buildToolsVersion "$androidBuildVersionTools"
+    buildToolsVersion "30.0.3"
 
     defaultConfig {
-        versionName version
         minSdkVersion androidMinSdk
         targetSdkVersion androidTargetSdk
     }
@@ -36,5 +35,5 @@ dependencies {
     api project(':play-services-base')
     api project(':play-services-location-api')
 
-    implementation 'androidx.annotation:annotation:1.1.0'
+    implementation 'androidx.annotation:annotation:1.3.0'
 }
